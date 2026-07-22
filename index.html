@@ -614,6 +614,7 @@ function showApp(){
   document.getElementById("userEmail").textContent=currentUser.displayName||currentUser.email;
   document.getElementById("adminBadge").style.display=isAdmin?"inline-flex":"none";
   document.querySelectorAll(".admin-only-el").forEach(el=>el.style.display=isAdmin?"":"none");
+  // admin-only-el já cuida da visibilidade do card de empresas
 }
 window.showRegister=function(){document.getElementById("loginForm").style.display="none";document.getElementById("registerForm").style.display="block";document.getElementById("authErr").textContent="";};
 window.showLoginForm=function(){document.getElementById("registerForm").style.display="none";document.getElementById("loginForm").style.display="block";document.getElementById("authErr").textContent="";};
@@ -977,11 +978,11 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:var(--s3);}
     </div>
     <div class="view" id="view-config">
       <div class="settings-grid">
-        <!-- EMPRESAS — destaque especial -->
-        <div class="sc empresa-sc" id="empresaCard" style="display:none">
+        <!-- EMPRESAS — visível sempre para Admin -->
+        <div class="sc empresa-sc admin-only-el" id="empresaCard">
           <h3>🏢 Gerenciar Empresas</h3>
-          <p style="font-size:.7rem;color:var(--text2);margin-bottom:12px">Adicione, renomeie ou exclua empresas. As mudanças aparecem em tempo real para toda a equipe.</p>
-          <div id="empresaConfig"></div>
+          <p style="font-size:.7rem;color:var(--text2);margin-bottom:12px">Adicione, renomeie ou exclua empresas. Mudanças em tempo real para toda a equipe.</p>
+          <div id="empresaConfig"><div style="color:var(--text2);font-size:.76rem">Carregando empresas...</div></div>
         </div>
         <div class="sc">
           <h3>🎨 Tema (seu layout pessoal)</h3>
@@ -1022,13 +1023,11 @@ const _months=["janeiro","fevereiro","março","abril","maio","junho","julho","ag
 const dp=document.getElementById("datePill");if(dp)dp.textContent=`${_days[_n.getDay()]}, ${_n.getDate()} de ${_months[_n.getMonth()]}`;
 const fd=document.getElementById("focusDate");if(fd)fd.textContent=`${_days[_n.getDay()]}, ${_n.getDate()} de ${_months[_n.getMonth()]} de ${_n.getFullYear()}`;
 
-// Mostra card de empresas só pra admin após login
-function showEmpresaCard(){
+// Mostra card de empresas só pra admin após login — chamado no showApp
+window._showEmpresaCard=function(){
   const card=document.getElementById("empresaCard");
-  if(card&&typeof isAdmin!=="undefined"&&isAdmin)card.style.display="block";
-}
-// chamado após renderMbrConfig
-const _origShowApp=window.showApp;
+  if(card&&window._isAdmin)card.style.display="block";
+};
 </script>
 </body>
 </html>
