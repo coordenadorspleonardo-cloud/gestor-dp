@@ -139,17 +139,25 @@ async function initEmpresas(){
 
 function startListeners(){
   // Empresas
-  unsubEmpresas=onSnapshot(doc(db,"config","empresas"),snap=>{
-    if(snap.exists()){
-      empresas=[...(snap.data().list||[])].sort((a,b)=>(a.order||0)-(b.order||0));
+  // Carrega empresas — Firebase ou padrão
+  empresas=[...DEFAULT_EMPRESAS];
+  renderEmpresaFilters();renderEmpresaConfig();
+  const empRef=doc(db,"config","empresas");
+  try{
+    const snap=await getDoc(empRef);
+    if(snap.exists()&&snap.data().list?.length){
+      empresas=[...snap.data().list].sort((a,b)=>(a.order||0)-(b.order||0));
     }else{
-      empresas=[...DEFAULT_EMPRESAS];
-      initEmpresas();
+      await setDoc(empRef,{list:DEFAULT_EMPRESAS});
     }
-    renderEmpresaFilters();
-    renderEmpresaConfig();
-    renderAll();
-  });
+    renderEmpresaFilters();renderEmpresaConfig();renderAll();
+  }catch(e){console.log("empresas offline, usando padrão");}
+  unsubEmpresas=onSnapshot(empRef,snap=>{
+    if(snap.exists()&&snap.data().list?.length){
+      empresas=[...snap.data().list].sort((a,b)=>(a.order||0)-(b.order||0));
+      renderEmpresaFilters();renderEmpresaConfig();renderAll();
+    }
+  },e=>console.log("listener empresas:",e));
 
   unsubTasks=onSnapshot(query(collection(db,"tasks"),orderBy("createdAt","desc")),snap=>{
     tasks=snap.docs.map(d=>({id:d.id,...d.data()})).filter(t=>isAdmin||!ADMIN_SECS.includes(t.sec));
@@ -289,6 +297,10 @@ window.toggleDone=async function(id){
   try{await updateDoc(doc(db,"tasks",id),{done:!t.done,doneAt:!t.done?serverTimestamp():null});}catch(e){}
 };
 window.delTask=async function(id){
+  const t=tasks.find(t=>t.id===id);if(!t)return;
+  if(!isAdmin&&t.createdBy!==currentUser.uid){
+    alert("Você só pode excluir tarefas que você mesmo criou.");return;
+  }
   if(!confirm("Excluir permanentemente?"))return;
   try{await deleteDoc(doc(db,"tasks",id));}catch(e){}
 };
@@ -296,6 +308,13 @@ window.restoreTask=async function(id){
   try{await updateDoc(doc(db,"tasks",id),{done:false,doneAt:null});}catch(e){}
 };
 window.saveInline=async function(id,field,el){
+  const t=tasks.find(t=>t.id===id);if(!t)return;
+  if(!isAdmin&&t.createdBy!==currentUser.uid){
+    // reverte visualmente
+    if(el.textContent!==undefined)el.textContent=t[field]||"";
+    else el.value=t[field]||"";
+    return;
+  }
   const val=el.value!==undefined?el.value:(el.textContent||"").trim();
   try{await updateDoc(doc(db,"tasks",id),{[field]:val});}catch(e){}
 };
@@ -383,11 +402,12 @@ function buildCard(t){
   if(t.prio==="urg"&&!t.done)div.style.boxShadow=`0 0 0 1px ${emp.color}18`;
   const respHtml=resp?`<div class="resp-pill"><div class="resp-avatar" style="background:${resp.color}25;color:${resp.color}">${resp.ini||"?"}</div>${esc(resp.name)}</div>`:"";
   const cmtCount=(t.cmts||[]).length;
+  const canEdit=isAdmin||(t.createdBy===currentUser?.uid);
   div.innerHTML=`
     <div class="chk" onclick="toggleDone('${t.id}')">${t.done?"✓":""}</div>
     <div class="t-body">
-      <div class="t-title" contenteditable="true" onblur="saveInline('${t.id}','tit',this)">${esc(t.tit)}</div>
-      <div class="t-detail" contenteditable="true" onblur="saveInline('${t.id}','det',this)">${esc(t.det||"")}</div>
+      <div class="t-title" contenteditable="${canEdit}" onblur="saveInline('${t.id}','tit',this)" style="${!canEdit?"cursor:default;":""}">${esc(t.tit)}</div>
+      <div class="t-detail" contenteditable="${canEdit}" onblur="saveInline('${t.id}','det',this)" style="${!canEdit?"cursor:default;":""}">${esc(t.det||"")}</div>
       <div class="t-meta">
         <span class="tag ${pr.tc}">${pr.l}</span>
         <span class="tag" style="background:${emp.color}18;color:${emp.color};border:1px solid ${emp.color}30">${esc(emp.label)}</span>
@@ -411,8 +431,8 @@ function buildCard(t){
     </div>
     <div class="t-actions">
       <button class="bi cmt" onclick="toggleCmt('${t.id}')">${cmtCount?"💬"+cmtCount:"💬"}</button>
-      <button class="bi" onclick="openEdit('${t.id}')">✏️</button>
-      <button class="bi del" onclick="delTask('${t.id}')">🗑</button>
+      ${canEdit?`<button class="bi" onclick="openEdit('${t.id}')">✏️</button>`:""}
+      ${canEdit?`<button class="bi del" onclick="delTask('${t.id}')">🗑</button>`:""}
     </div>`;
   return div;
 }
