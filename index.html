@@ -433,7 +433,7 @@ tr:hover td{background:var(--s3);}
       <div class="search-wrap"><input type="text" id="searchInp" placeholder="Buscar tarefas..."></div>
     </div>
     <div class="hd-right">
-      <div class="user-pill"><div class="user-av">👤</div><span id="userEmail"></span><span class="admin-badge" id="adminBadge">Admin</span></div>
+      <div class="user-pill"><div class="user-av">👤</div><span id="userEmail"></span><div class="online" id="selfOnlineDot" title="Você está online"></div><span class="admin-badge" id="adminBadge">Admin</span></div>
       <div class="date-pill" id="datePill"></div>
       <button class="btn-focus" id="btnFocus">⚡ Foco</button>
       <button class="btn-add" id="btnAdd">＋ Nova Tarefa</button>
@@ -1184,10 +1184,12 @@ function renderDone(){
 }
 
 function renderChat(){
-  const hdAv=document.getElementById("chatHdAv");
-  const hdName=document.getElementById("chatHdName");
-  const hdSub=document.getElementById("chatHdSub");
+  const hdAv=document.querySelector(".chat-hd-av");
+  const hdName=document.querySelector(".chat-hd-name");
+  const hdSub=document.querySelector(".chat-hd-sub");
   const mc=document.getElementById("chatMsgs");
+  const chatInpEl=document.getElementById("chatInp");
+  if(!hdAv||!hdName||!hdSub||!mc)return;
 
   if(unsubDM){unsubDM();unsubDM=null;}
 
@@ -1215,7 +1217,7 @@ function renderChat(){
     unsubDM=onSnapshot(query(collection(db,"dm_messages"),where("convId","==",cid),orderBy("ts","asc")),snap=>{
       const dmMsgs=snap.docs.map(d=>({id:d.id,...d.data()}));
       renderMsgList(mc,dmMsgs,true);
-    });
+    },err=>{console.error("erro monitor:",err);mc.innerHTML='<div class="empty">Erro ao carregar. Verifique o índice do Firestore no console (F12).</div>';});
     return;
   }
   document.getElementById("chatInp").disabled=false;
@@ -1233,7 +1235,7 @@ function renderChat(){
     const dmMsgs=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderMsgList(mc,dmMsgs,false);
     markAsRead(dmMsgs);
-  });
+  },err=>{console.error("erro dm:",err);mc.innerHTML='<div class="empty">Erro ao carregar conversa. Verifique o console (F12) — pode faltar um índice no Firestore.</div>';});
 }
 
 function renderMsgList(container,list,readonly){
